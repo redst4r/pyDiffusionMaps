@@ -1,0 +1,26 @@
+#java class
+*.class
+
+#matlab autosaves
+*~
+
+#svn remnants
+.svn
+
+# some latex stuff
+*.aux
+*.lof
+*.log
+*.toc
+*.fls
+*.out
+#bib files
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+
+#python compiled files
+*.pyc

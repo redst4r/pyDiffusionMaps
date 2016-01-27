@@ -1,0 +1,2 @@
+[rsync]
+remote = your.remote-host.org:/share/fat-store
