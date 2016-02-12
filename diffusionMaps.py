@@ -130,14 +130,8 @@ class DiffusionMap(BaseEstimator):
 
 
 if __name__ == '__main__':
-    #X = np.random.normal(0,1,size=(1000,10))
-    #X = np.vstack((X, np.random.normal(5,1,size=(1000,10))))
 
-    import sys
-    sys.path.append('/home/michi/pythonProjects/deepLearning/utils')
-    sys.path.append('/home/michi/pythonProjects/deepLearning/AE_timeLapse')
-    sys.path.append('/home/michi/pythonProjects/deepLearning/pyDiffusionMaps')
-
+    # testing with MNIST
     from sklearn.datasets import fetch_mldata
     mnist = fetch_mldata('MNIST original')
     X, y = mnist.data.astype(np.float32), mnist.target
