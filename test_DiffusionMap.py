@@ -96,25 +96,25 @@ def test__density_normalize__sparse(mixtureNormals):
     assert issparse(_density_normalize(K)), 'returned matrix is not sparse after normalization'
 
 
-def test__density_normalize__colsum(mixtureNormals):
+def test__density_normalize__rowsum(mixtureNormals):
     K = create_sparse_sym_matrix(100, density=0.1)
     K_norm = _density_normalize(K)
 
-    np.testing.assert_allclose(K_norm.toarray().sum(0), 1)
+    np.testing.assert_allclose(K_norm.toarray().sum(1), 1)
 
 
-def test__test__density_normalize__not_sparse(mixtureNormals):
+def test__density_normalize__not_sparse(mixtureNormals):
     K = create_sym_matrix(2)
     K_norm = _density_normalize(K)
 
     assert isinstance(K_norm, np.ndarray), 'must return full matrix if we put in a full matrix'
 
 
-def test__density_normalize__not_sparse_colsum(mixtureNormals):
+def test__density_normalize__not_sparse_rowsum(mixtureNormals):
     K = create_sym_matrix(100)
     K_norm = _density_normalize(K)
 
-    np.testing.assert_allclose(K_norm.sum(0), 1)
+    np.testing.assert_allclose(K_norm.sum(1), 1)
 
 
 def test_density_normalize_same_result_sparse_nonsparse():

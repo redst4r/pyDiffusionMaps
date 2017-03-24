@@ -40,15 +40,13 @@ def _density_normalize(kernelMat):
     if issparse(kernelMat):
         Z = np.array(kernelMat.sum(0)).flatten()  # a bit ugly, Z is this strange type(matrix), which one cannot cast into a 1d array, hence the detour to np.array
         _check_Z_for_division(Z, eps)
-
         scalingMat = diags(1.0 / (Z + eps), offsets=0)  # multiplying by this (one the right) is equivalent to rescaling the columns
         P_tilde = scalingMat * kernelMat * scalingMat  # this is matrix multiply!
+
     else:
         Z = kernelMat.sum(0).flatten() # make sure it doesnt have two dimensions, needed for the broadcasting below
         _check_Z_for_division(Z, eps)
-
         invZ = 1.0 / (Z + eps)  # careful about zero division.
-
         #TODO replace by matrix multiplicaition?!  ->  M@N
         P_tilde = kernelMat * invZ * invZ.reshape(-1,1) # broadcasts along rows and columsn, sclaing them both
 
@@ -56,21 +54,22 @@ def _density_normalize(kernelMat):
     # Eq (5,6) of [1]
     # once again, the same trick with diagonal matrix for resacling
     if issparse(kernelMat):
-        Z_tilde = np.array(P_tilde.sum(0)).flatten()
+        Z_tilde = np.array(P_tilde.sum(1)).flatten()
         _check_Z_for_division(Z_tilde, eps)
         scalingMat = diags(1.0 / (Z_tilde + eps), offsets=0)
-        P_tilde = P_tilde * scalingMat
+        P_tilde = scalingMat * P_tilde
     else:
-        Z_tilde = P_tilde.sum(0).flatten() # make sure it doesnt have two dimensions, needed for the broadcasting below
+        Z_tilde = P_tilde.sum(1).flatten() # make sure it doesnt have two dimensions, needed for the broadcasting below
         _check_Z_for_division(Z_tilde, eps)
-
         invZ_tilde = 1.0 / (Z_tilde + eps)
+        ixnonZero = Z_tilde != 0         #same fuzz about the zero
 
-        #same fuzz about the zero
-        ixnonZero = Z_tilde != 0
-        P_tilde[np.ix_(ixnonZero, ixnonZero)] = P_tilde[np.ix_(ixnonZero, ixnonZero)] * invZ_tilde[ixnonZero] #normalizes each column
+        # nasty: since zInv_tilde is a 1D vector it automatically broadcasts along rows (leading to col normalization)
+        # hence we have to make the broadcasting explicit, giving shape to invZ
+        P_tilde[np.ix_(ixnonZero, ixnonZero)] = P_tilde[np.ix_(ixnonZero, ixnonZero)] * invZ_tilde[ixnonZero].reshape(-1,1)  #normalizes each row
 
     return P_tilde
+
 
 class DiffusionMap(BaseEstimator):
 
@@ -153,6 +152,7 @@ class DiffusionMap(BaseEstimator):
     def _get_kernel_matrix(self, X, k):
         """
         returns the kernel matrix for the samples in X using a Gaussian Kernel and a kNN-approximation,
+        called K(x,y) in [2]
 
         - all distances are zero, except within the neartest neighbours
         - also symmetrizing the matrix (kNN is not symmetric necceseraly)
