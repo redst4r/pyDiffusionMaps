@@ -6,7 +6,8 @@ from scipy.sparse.linalg import eigsh
 from scipy.linalg import eigh
 import matplotlib.pyplot as plt
 import scipy.spatial.distance
-
+import logging
+logging.basicConfig(level=logging.DEBUG)  #for DEVEL, just use full logging
 
 def _check_Z_for_division(Z,eps):
     "Z might be zero sometimes, we add a small constant epsilon to it. make sure this doesnt change to much"
@@ -82,17 +83,15 @@ class DiffusionMap(BaseEstimator):
         Bioinformatics 31, 2989–2998 (2015).
     """
 
-    def __init__(self, sigma, embedding_dim, verbose=False, k=100):
+    def __init__(self, sigma, embedding_dim, k=100):
         """
         :param sigma: diffusion kernel width
         :param embedding_dim: how many dimension to reduce to
-        :param verbose: bool, printing some info
         :param k: kNN parameter (kNN is used when calculating the kernel matrix). the larger the more accurate, but the more RAM needed
         :return:
         """
         self.sigma = sigma
         self.embedding_dim = embedding_dim
-        self.verbose = verbose
         self.k = k
 
     def fit_transform(self, X, density_normalize=True):
@@ -106,26 +105,22 @@ class DiffusionMap(BaseEstimator):
         # calculate the kernelmatrix based on a neirest neighbour graph
         # kernelMat is called $P_xy$ in [1]
         k = min(self.k, X.shape[0])  # limit the number of neighbours
-        if self.verbose:
-            print("Calculating kernel matrix")
+
+        logging.info("Calculating kernel matrix")
         kernelMat = self._get_kernel_matrix(X, k)
-        if self.verbose:
-            print("DONE: Calculating kernel matrix")
 
         # set the diagonal to 0: no diffusion onto itself
-        kernelMat.setdiag(np.zeros(X.shape[0]))
+        kernelMat.setdiag(np.zeros(X.shape[0]))  # TODO not sure if this is to be done BEFORE or after normailzation
 
         if density_normalize:
-            if self.verbose:
-                print('density normalization')
+            logging.info("density normalization")
             kernelMat = _density_normalize(kernelMat)
 
         #also, store the kernel matrix (mostly debugging)
         self.kernelMat = kernelMat
 
         # calculate the eigenvectors of the matrx
-        if self.verbose:
-            print("Calculating eigenvalue decomposition")
+        logging.info("Calculating eigenvalue decomposition")
 
         #TODO Warning: kernel matrix os not symmetric after density normalization, eigsh might fail!?
         lambdas, V = eigsh(kernelMat, k=self.embedding_dim)  # calculate as many eigs as the requested embedding dim
