@@ -33,8 +33,6 @@ def create_sparse_sym_matrix(n, density=0.1): # sparseness = .9 -> 90% entries z
     return csr_matrix(sym*ix)
 
 
-
-
 def test_DiffusionMap_fit_transform_output_dimensions(mixtureNormals):
     X = mixtureNormals
 
@@ -77,7 +75,7 @@ def test_DiffusionMap_get_kernel_matrix_number_of_neighbours(mixtureNormals):
 def test_DiffusionMap_get_kernel_matrix_symmetry(mixtureNormals):
     "make sure the kernel matrix is symmetric"
     X = mixtureNormals
-    df = DiffusionMap(sigma=1,embedding_dim=2,verbose=False)
+    df = DiffusionMap(sigma=1,embedding_dim=2)
     K = df._get_kernel_matrix(X,k=2)
 
     Q = (K-K.T).toarray()  # np.all doesnt work on sparse matrices
@@ -85,7 +83,7 @@ def test_DiffusionMap_get_kernel_matrix_symmetry(mixtureNormals):
 
 
 def test__get_kernel_matrix_sparse(mixtureNormals):
-    df = DiffusionMap(sigma=1,embedding_dim=2,verbose=False)
+    df = DiffusionMap(sigma=1,embedding_dim=2)
     K = df._get_kernel_matrix(mixtureNormals,k=10)
     assert issparse(K)
 
@@ -97,24 +95,42 @@ def test__density_normalize__sparse(mixtureNormals):
 
 
 def test__density_normalize__rowsum(mixtureNormals):
+    "enforce rows summing to on for the desniy normalization"
     K = create_sparse_sym_matrix(100, density=0.1)
     K_norm = _density_normalize(K)
-
     np.testing.assert_allclose(K_norm.toarray().sum(1), 1)
 
+
+def test__density_normalize__not_sparse_rowsum(mixtureNormals):
+    "enforce rows summing to on for the desniy normalization"
+    K = create_sym_matrix(100)
+    K_norm = _density_normalize(K)
+    np.testing.assert_allclose(K_norm.sum(1), 1)
+
+
+# def test__density_normalize__not_sparse_symmetrize(mixtureNormals):
+#     "check the symmetrized version of the transtion matrix"
+#     K = create_sym_matrix(100)
+#     Tsym = _density_normalize(K, symmetrize=True)
+#     # check symmetry
+#     np.testing.assert_allclose(Tsym, Tsym.T, err_msg="Tsym is not symmetric")
+#     # check the rowsum =1
+#     np.testing.assert_allclose(Tsym.sum(1), 1)
+
+def test__density_normalize__sparse_symmetrize(mixtureNormals):
+    "check the symmetrized version of the transtion matrix"
+    K = create_sparse_sym_matrix(100, 0.1)
+    Tsym = _density_normalize(K, symmetrize=True)
+    # check symmetry
+    np.testing.assert_allclose(Tsym.toarray(), Tsym.T.toarray(), err_msg="Tsym is not symmetric")
+    # check the rowsum =1
+    np.testing.assert_allclose(Tsym.toarray().sum(1), 1, err_msg="rowsum <> 1")
 
 def test__density_normalize__not_sparse(mixtureNormals):
     K = create_sym_matrix(2)
     K_norm = _density_normalize(K)
-
     assert isinstance(K_norm, np.ndarray), 'must return full matrix if we put in a full matrix'
 
-
-def test__density_normalize__not_sparse_rowsum(mixtureNormals):
-    K = create_sym_matrix(100)
-    K_norm = _density_normalize(K)
-
-    np.testing.assert_allclose(K_norm.sum(1), 1)
 
 
 def test_density_normalize_same_result_sparse_nonsparse():
