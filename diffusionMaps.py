@@ -300,6 +300,115 @@ class DiffusionMap(BaseEstimator):
         return K_sym
 
 
+class DiffusionMap_Nystroem(BaseEstimator):
+    """
+    this one uses the Nystroem approximation to approximate the kernel matrix
+    """
+
+    def __init__(self, sigma, embedding_dim, m_nystroem, verbose=False, ):
+        """Constructor for DiffusionMap_Nystroem
+        :param sigma: diffusion kernel width
+        :param embedding_dim: how many dimension to reduce to
+        :param verbose: bool, printing some info
+        :param m_nystroem: how many samples to use when approximating the  kernel matrix (larger-> more accurate, but more memory/computation time)
+        :return:
+        """
+        self.sigma = sigma
+        self.embedding_dim = embedding_dim
+        self.verbose = verbose
+        self.m_nystroem = m_nystroem
+
+    def fit_transform(self, X, weighted_nystroem=False, density_normalize=True):
+        """
+        along the lines of "Using the nystroem method to speed up kernel machines"
+        :param X:
+        :param weighted_nystroem:
+        :return:
+        """
+        N = X.shape[0]
+        if weighted_nystroem:
+            raise NotImplementedError('TODO weighted nystroem')
+        else:
+            # draw a few (m) samples on which the kernel matrix is actually calculated
+            ix = np.random.choice(N, size=self.m_nystroem, replace=False)
+
+        self.ix_subsample = ix  # for debugging mostly
+
+        # calculate the small kernel matrix
+        if self.verbose: print('calculating small kernel matrix')
+        K_mm = self._calc_kernel_mat(X[ix,:])
+
+        # set the diagonal to 0: no diffusion onto itself
+        np.fill_diagonal(K_mm, 0)
+        if density_normalize:
+            K_mm = _density_normalize(K_mm)
+
+        # save (for debugging mostly)
+        self.K_mm = K_mm
+
+        # decompose it
+        #TODO Warning: kernel matrix os not symmetric after density normalization, eigsh might fail!?
+        print('decomposing small kernel matrix') if self.verbose else ''
+
+        lo, hi = K_mm.shape[0]-self.embedding_dim,  K_mm.shape[0]-1  # only calculate the largest ones
+        lam_mm, V_mm = eigh(K_mm, eigvals=(lo, hi))
+        assert len(lam_mm) == self.embedding_dim, 'sth went wrong with the number of eigenvalues'
+        # eigh returns the k largest eigenvals but ascending order (smallest first), so resort
+        ix_eig = lam_mm.argsort()[::-1]
+        V_mm, lam_mm = V_mm[:,ix_eig], lam_mm[ix_eig]
+
+
+        # eq. (8,9) in the paper
+        if self.verbose:
+            print('calculating K_mn')
+
+        # from that, calculate the new eigenvectors, eigenvalues for the big matrix
+        K_nm =  self._calc_kernel_mat(X, X[ix,:])  # link to the remaining datapoints
+
+        # approx eigenvectors/eigenvals of the full matrix are just rescaled versions of the small ones
+        if self.verbose:
+            print('calculating full Eigenvectors')
+
+        # TODO:projection issue
+        """
+        we shouldnt actually project the subsampled points again?! if m=N we should get the full eigenvectors exaclty
+        - it should work for m==n, since  (defintiion of eigenvectors)
+                   np.dot(Knm * Vnn) = lam_mm * Vnn
+           which nicely cancels all other terms
+
+        - problem is: K_mm is normalized, diagonal zero (diag doesnt matter though, Knm has no 'datapoint onto itself' elements).
+           Knm is not normalized! hence the eigenvector Eq doesnt work
+          -> proof of that: if we turn off density normalization, it works perfectly
+        """
+
+        M = self.m_nystroem
+        lam_nxn = (N/M) * lam_mm
+        V_nxn = (np.sqrt(M/N)/lam_mm) * np.dot(K_nm, V_mm)
+
+        # import pdb
+        # pdb.set_trace()
+
+        # an approximattion Khat to K_full is constructed using (see text between eq7 and eq8)
+        # Khat = V_nxn lam_nxn V_nxn.T
+        # Khat = np.dot(np.dot(V_nxn, np.diag(lam_nxn)), V_nxn.T )
+
+        return V_nxn, lam_nxn
+
+    def _calc_kernel_mat(self, X, Y=None):
+        """
+        calculates the kernel matrix. If only X is given, returns the square matrix of X vs
+        if X,Y is given, calculates the kernel bewteen those two sets
+        :param X:
+        :param Y:
+        :return:
+        """
+        if Y is None:
+            d = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(X))
+        else:
+            d = scipy.spatial.distance.cdist(X, Y)
+
+        return np.exp(-(0.5/self.sigma**2) * d**2)
+
 if __name__ == '__main__':
 
     # testing with MNIST
