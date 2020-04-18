@@ -112,6 +112,39 @@ def _density_normalize(kernelMat, symmetrize=False):
     return P_tilde
 
 
+def _calc_dpt(T):
+    ":param T: transition matrix"
+    n_vectors = T.shape[0]-1  # somehow the method can only compute all but the first EV
+
+    assert issparse(T), "T should be sparse"
+    logging.info("Calculating full eigenvalue decomposition")
+    lambdas, V = eigsh(T, k=n_vectors)  # psi(0) which is the stationary density
+
+    # the last eigenvalue/eigenvector pair is the stationary state which we ommit here
+    # note that we're missing the smalest eigenvector here!!
+    prefactor = ((lambdas/(1-lambdas))**2)
+
+    # TODO May17: not sure if the prefactor is correct for M: souldnt be squared!!
+    M = V[:,:-1] @ np.diag(prefactor[:-1]) @ V[:,:-1].T  # [:-1] skip the last EV which is the steady state
+
+    logging.info("calculating dpt matrix")
+
+    # we have to iterate over all eigenvectors,
+    # build a difference matrix and multiply by the prefactor
+    # dpt2 is then jsut the sum over all these matrixes
+    dpt2_matrix = np.zeros((V.shape[0], V.shape[0]))
+    for i in range(0, n_vectors - 1):  # -1 again to skip the stst-vector
+        currentPsi = V[:, i].reshape(-1, 1)  # a row vector
+        # due to numpy broadcasting the next line will
+        # become a matrix: difference of everyone vs evergone
+        squared_difference_matrix = (currentPsi - currentPsi.T) ** 2
+        dpt2_matrix = dpt2_matrix + prefactor[i] * squared_difference_matrix
+
+    import warnings
+    warnings.warn('changed to return sqrt(dtp2)')
+    return M, np.sqrt(dpt2_matrix)
+
+
 class DiffusionMap(BaseEstimator):
 
     """
