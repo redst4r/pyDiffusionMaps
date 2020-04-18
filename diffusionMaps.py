@@ -122,9 +122,8 @@ def _calc_dpt(T):
 
     # the last eigenvalue/eigenvector pair is the stationary state which we ommit here
     # note that we're missing the smalest eigenvector here!!
-    prefactor = ((lambdas/(1-lambdas))**2)
+    prefactor = lambdas/(1-lambdas)
 
-    # TODO May17: not sure if the prefactor is correct for M: souldnt be squared!!
     M = V[:,:-1] @ np.diag(prefactor[:-1]) @ V[:,:-1].T  # [:-1] skip the last EV which is the steady state
 
     logging.info("calculating dpt matrix")
@@ -138,7 +137,7 @@ def _calc_dpt(T):
         # due to numpy broadcasting the next line will
         # become a matrix: difference of everyone vs evergone
         squared_difference_matrix = (currentPsi - currentPsi.T) ** 2
-        dpt2_matrix = dpt2_matrix + prefactor[i] * squared_difference_matrix
+        dpt2_matrix = dpt2_matrix + prefactor[i]**2 * squared_difference_matrix
 
     import warnings
     warnings.warn('changed to return sqrt(dtp2)')
@@ -287,7 +286,7 @@ class DiffusionMap(BaseEstimator):
         shared_mask = (K!=0).multiply(K.T!=0)  # marking entries that are nonzero in both matrixes. mulitply is elemntwise!
         K_sym = K + K.T - K.multiply(shared_mask) # adding them up, subtracting the common part that was counted twice!
 
-        np.testing.assert_allclose((K_sym-K_sym.T).A, 0, atol=1e-10)  # todo loose tolerance
+        np.testing.assert_allclose((K_sym-K_sym.T).A, 0, atol=1e-6)  # todo loose tolerance
 
         return K_sym
 
