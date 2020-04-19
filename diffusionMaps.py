@@ -9,6 +9,15 @@ import scipy.spatial.distance
 import logging
 logging.basicConfig(level=logging.INFO)  #for DEVEL, just use full logging
 
+
+"""
+    [1] Haghverdi, L., Buettner, F. & Theis, F. J.
+        Diffusion maps for high-dimensional single-cell analysis of differentiation data.
+        Bioinformatics 31, 2989–2998 (2015).
+    [2] Laleh Haghverdi, Maren B¨uttner, F. Alexander Wolf, Florian Buettner, Fabian J. Theis
+        Diffusion pseudotime robustly reconstructs lineage branching
+"""
+
 def _check_Z_for_division(Z,eps):
     "Z might be zero sometimes, we add a small constant epsilon to it. make sure this doesnt change to much"
 
@@ -27,13 +36,15 @@ def _density_normalize(kernelMat, symmetrize=False):
     2. strange row normalization Eq(5,6) in [2]  or Eq(5,6) in [1]
         this is to get the "normalized graph laplacian" as in Coifman.
 
-        essentially this makes it a transition matrix
+        essentially this makes it a transition matrix. This is asymmetric!
+
+    3. optional: symmetrize the transition matrix again! (see [2] Suppl.Eq 7)
 
     be very careful here if K is a sparse matrix, which behaves differently from usual np.ndarray
     in terms of operators *, /
 
-    :param symmetrize: if True, we return a symmetrized transition matrix (see [2] Suppl.Eq 7) otherwise the classic
-                       non-symmetric transition matrix
+    :param symmetrize: if True, we return a symmetrized transition matrix
+         otherwise the classic non-symmetric transition matrix
     """
     eps = 1e-100
 
@@ -150,9 +161,7 @@ class DiffusionMap(BaseEstimator):
     diffusion maps for dimension reduction along the lines of [1]
     this one uses nearest neighbours to approximate the kernel matrix
 
-    [1] Haghverdi, L., Buettner, F. & Theis, F. J.
-        Diffusion maps for high-dimensional single-cell analysis of differentiation data.
-        Bioinformatics 31, 2989–2998 (2015).
+
     """
 
     def __init__(self, sigma, embedding_dim, k=100):
